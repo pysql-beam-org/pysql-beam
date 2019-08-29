@@ -1,6 +1,6 @@
 ## pysql-beam
 
-### This package is still under development
+### This package is still under development but has been used in few projects in production. This has been tested with dataflow Runner and Direct runner
 
 This package aim to provide Apache_beam io connector for MySQL and Postgres database.
 
@@ -20,7 +20,7 @@ Requirements:
 
 Installation:
     
-    1. pip install git+https://dverma90@bitbucket.org/dverma90/pysql-beam.git
+    1. pip install git+git@github.com:MediaAgility/pysql-beam.git
 
 
 Current functionality:
@@ -39,6 +39,19 @@ Reference Guide:
     
     https://beam.apache.org/documentation/io/developing-io-python/
 
+Usage Guide:
+```
+from pysql_beam.sql_io.sql import ReadFromSQL
+
+....
+ReadFromSQL(host=self.options.host, port=self.options.port,
+        username=self.options.username, password=self.options.password,
+        databse=self.options.database,
+        query=self.options.source_query,
+        wrapper=PostgresWrapper,
+        batch=100000)
+
+```
 Examples:
 
     For mysql:
