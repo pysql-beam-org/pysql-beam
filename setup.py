@@ -32,7 +32,6 @@ setuptools.setup(
         'License :: OSI Approved :: MIT License',
         'Intended Audience :: Developers',
         "Operating System :: OS Independent",
-        'Topic :: Data-Engineering',
     ],
     keywords="apache-beam,mysql,postgres,python,io,source,sink,read,write,database",
  )
