@@ -1,7 +1,5 @@
 ## pysql-beam
 
-### This package is still under development but has been used in few projects in production. This has been tested with dataflow Runner and Direct runner
-
 This package aim to provide Apache_beam io connector for MySQL and Postgres database.
 
 
