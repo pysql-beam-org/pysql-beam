@@ -185,10 +185,10 @@ class SQLSouceInput(object):
         self.password = password
         self.batch = batch
         self.autocommit = autocommit
-        if wrapper in [MySQLWrapper, PostgresWrapper]:
+        if wrapper in [BaseWrapper, MySQLWrapper, PostgresWrapper]:
             self.wrapper = wrapper
         else:
-            raise ExceptionInvalidWrapper("Wrapper can be either [MySQLWrapper, PostgresWrapper]")
+            raise ExceptionInvalidWrapper("Wrapper can be [BaseWrapper, MySQLWrapper, PostgresWrapper]")
 
         self._connection = None
         self._client = None
