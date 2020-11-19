@@ -20,7 +20,7 @@ Requirements:
 
 Installation:
     
-    1. pip install git+git@github.com:jac2130/pysql-beam.git
+    1. pip install git+git@github.com:MediaAgility/pysql-beam.git
     or 
     2. pip installl pysql-beam
 
@@ -29,7 +29,6 @@ Current functionality:
 
     1. Read from MySQL database by passing either table name or sql query
     2. Read from Postgres database by passing either table name or sql query
-    3. Read from MSSQL database by passing either table name or squl query
 
 
 Reference Guide:
