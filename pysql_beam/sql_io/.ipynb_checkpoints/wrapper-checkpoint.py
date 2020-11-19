@@ -1,5 +1,5 @@
 """
-This contains code for MySQL, MSSQL and Postgres sql database sql commands wrapeprs
+This contains code for MySQL and Postgres sql database sql commands wrapeprs
 
 """
 import datetime
@@ -474,22 +474,7 @@ class MySQLWrapper(BaseWrapper):
     def insert_rows(self, table, rows, skip_invalid_rows=False):
         return super(MySQLWrapper, self).insert_rows(table, rows, skip_invalid_rows=skip_invalid_rows)
 
-class MSSQLWrapper(BaseWrapper):
-    """mssql client wrapper with utilities for querying.
 
-    The wrapper is used to organize all the mssql integration points and
-    offer a common place where retry logic for failures can be controlled.
-    In addition it offers various functions used both in sources and sinks
-    (e.g., find and create tables, query a table, etc.).
-    """
-
-    def get_or_create_table(self, database, table, schema, create_disposition, write_disposition):
-        return super(MSSQLWrapper, self).get_or_create_table(database, table, schema, create_disposition, write_disposition)
-
-    def insert_rows(self, table, rows, skip_invalid_rows=False):
-        return super(MSSQLWrapper, self).insert_rows(table, rows, skip_invalid_rows=skip_invalid_rows)
-
-    
 class PostgresWrapper(BaseWrapper):
     """postgres client wrapper with utilities for querying.
 
@@ -584,14 +569,6 @@ class SQLWriteDoFn(beam.DoFn):
                                           user=self.username, password=self.password,
                                           database=self.database)
             connection.autocommit = self.autocommit or AUTO_COMMIT
-        elif self.wrapper == MSSQLWrapper:
-            import pyodbc
-            driver='{ODBC Driver 17 for SQL Server}'
-            connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
-                                        self.source.host+';PORT='+ str(int(self.source.port)) +
-                                        ';DATABASE='+self.source.database+';UID='+
-                                        self.source.username+';PWD='+self.source.password)
-
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
         self.connection = connection

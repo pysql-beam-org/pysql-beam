@@ -20,9 +20,8 @@ Requirements:
 
 Installation:
     
-    1. pip install git+git@github.com:jac2130/pysql-beam.git
-    or 
-    2. pip installl pysql-beam
+    pip install git+git@github.com:jac2130/pysql-beam.git
+   
 
 
 Current functionality:
