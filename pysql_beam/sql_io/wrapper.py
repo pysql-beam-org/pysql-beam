@@ -326,6 +326,7 @@ class BaseWrapper(object):
         if " limit " in query.lower():
             return query, False
         else:
+            print("Hey, I'm here and I shouldn't be!")
             query = query.strip(";")
             return "{query} LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset), True
 
@@ -492,16 +493,69 @@ class MSSQLWrapper(BaseWrapper):
     def insert_rows(self, table, rows, skip_invalid_rows=False):
         return super(MSSQLWrapper, self).insert_rows(table, rows, skip_invalid_rows=skip_invalid_rows)
     
+    @retry.with_exponential_backoff(
+        num_retries=MAX_RETRIES,
+        retry_filter=retry.retry_on_server_errors_and_timeout_filter)
+    def read(self, query, batch=READ_BATCH):
+        """
+        Execute the query and return the result in batch
+
+        or read in batch
+
+        # for i in range((size//batch)+1):
+        #     records = cursor.fetchmany(size=batch)
+        #     yield records, schema
+        TODO://
+        1. Add batch read
+
+        :param query: query to execute
+        :param batch: size of batch to read
+        :return: iterator of records in batch
+        """
+        with self.connection.cursor() as cursor:
+            logging.debug("Executing Read query")
+            #logging.debug(cursor.mogrify(query))
+            paginated_query, status = self.paginated_query(query, limit=batch, offset=0)
+            if status:
+                size = batch
+                offset = 0
+                while size >= batch:
+                    logging.debug("Paginated query")
+                    logging.debug(paginated_query)
+                    print(paginated_query)
+                    cursor.execute(paginated_query)
+                    schema = cursor.description
+                    size = cursor.rowcount
+                    records = cursor.fetchall()
+                    yield records, schema
+                    offset = offset + batch
+                    print("second pagination in the MSSQL world?", query)
+                    paginated_query, status = self.paginated_query(query, limit=batch, offset=offset)
+            else:
+                print(paginated_query)
+                cursor.execute(paginated_query)
+                schema = cursor.description
+                size = cursor.rowcount
+                if " limit " in paginated_query:
+                    records = cursor.fetchall()
+                    yield records, schema
+                else:
+                    for i in range((size//batch)+1):
+                        records = cursor.fetchmany(size=batch)
+                        yield records, schema
+            # records = cursor.fetchall()
+            # yield records, schema
+    
     @staticmethod
     def paginated_query(query, limit, offset=0):
-        if " fetch " in query.lower():
+        if " fetch " in query.lower() or  " limit " in query.lower():
             return query, False
         else:
             query = query.strip(";")
             if 'LIMIT' in query:
                 indx=query.index('LIMIT')
                 query= query[:indx-1]
-                #print(indx, "HERE", query[:indx-1])
+                print(indx, "HERE", query[:indx-1])
             return "{query} ORDER BY 1 OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;".format(query=query, limit=limit, offset=offset), True
 
 

@@ -41,8 +41,7 @@ class SQLOptions(PipelineOptions):
         # parser.add_value_provider_argument('--query', dest='query', required=False)
         # parser.add_value_provider_argument('--username', dest='username', required=False)
         # parser.add_value_provider_argument('--password', dest='password', required=False)
-        # parser.add_value_provider_argument('--output', dest='output', required=False, help="output file name")
-        #parser.add_value_provider_argument('--temp_location', dest='temp_location', default="gs://shapiro-dataflow-staging/tmp", help="staging location")
+        #parser.add_value_provider_argument('--db_type', dest='db_type', default="mssql", required=False, help="the type of database; allowed are 'mssql', 'mysql' and 'postgres'")
         parser.add_value_provider_argument('--host', dest='host', default="localhost")
         parser.add_value_provider_argument('--port', dest='port', default="3306")
         parser.add_value_provider_argument('--database', dest='database', default="dverma")
@@ -75,8 +74,8 @@ def run():
     mysql_data = (pipeline | ReadFromSQL(host=options.host, port=options.port,
                                         username=options.username, password=options.password,
                                         database=options.database, query=options.query,
+                                        #wrapper={'mssql': MSSQLWrapper, 'mysql': MySQLWrapper, 'postgres': PostgresWrapper}[options.db_type],
                                         wrapper=MSSQLWrapper,
-                                        #wrapper=MySQLWrapper,
                                         # wrapper=PostgresWrapper
                                         #
                                         )
@@ -84,8 +83,8 @@ def run():
                            | 'Write to Table' >> WriteToBigQuery(
                                table= options.output_table,
                                schema = 'SCHEMA_AUTODETECT',
-                               write_disposition=BigQueryDisposition.WRITE_APPEND)
-                               #create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED)
+                               write_disposition=BigQueryDisposition.WRITE_TRUNCATE,
+                               create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED)
                  )
 
     #transformed_data = mysql_data | "Transform records" >> beam.Map(transform_records, 'user_id')

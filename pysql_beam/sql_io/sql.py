@@ -216,6 +216,7 @@ class SQLSouceInput(object):
 class ReadFromSQL(beam.PTransform):
     def __init__(self, *args, **kwargs):
         self.source = SQLSouceInput(*args, **kwargs)
+        print("from inside the readFromSQL class, source:", self.source.wrapper)
         self.args = args
         self.kwargs = kwargs
 
@@ -238,12 +239,15 @@ class RowJsonDoFn(beam.DoFn):
 class PaginateQueryDoFn(beam.DoFn):
         def __init__(self, *args, **kwargs):
             self.args = args
+            print("pagination query do fn wrapper:", kwargs["wrapper"])
+            
             self.kwargs = kwargs
 
         def process(self, query, *args):
+            
             source = SQLSource(*self.args, **self.kwargs)
             SQLSouceInput._build_value(source, source.runtime_params)
-
+            print("we're in the process method now; source.client:", source.client)
             if query != 1:
                 source.query = query
             else:
@@ -258,7 +262,7 @@ class PaginateQueryDoFn(beam.DoFn):
                     row_count = records[0][0]
                 offsets = list(range(0, row_count, batch))
                 for offset in offsets:
-                    paginated_query, status = self.paginated_query(query, batch, offset)
+                    paginated_query, status = source.client.paginated_query(query, batch, offset)
                     queries.append(paginated_query)
                     logging.debug(("paginated query", paginated_query))
                     if not status:
@@ -273,10 +277,13 @@ class PaginateQueryDoFn(beam.DoFn):
         def paginated_query(query, limit, offset=0):
             query = query.strip(";")
             if " limit " in query.lower():
+                
+                print(self.source.wrapper, "HERE WE ARE line 276 in sql.py!!!")
                 query = "SELECT * from ({query}) as sbq LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset)
                 return query, True
                 # return query, False
             else:
+                print("FUNKY STUFF")
                 query = query.strip(";")
                 return "{query} LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset), True
 
@@ -345,6 +352,7 @@ class SQLSourceDoFn(beam.DoFn):
         source = SQLSource(*self.args, **self.kwargs)
         SQLSouceInput._build_value(source, source.runtime_params)
         self.source = source
+        print("here I'm now reading from source client:", source.client)
         #logging.debug("Processing - {}".format(query))
         print(source.client, query)
         # records_schema = source.client.read(query)
