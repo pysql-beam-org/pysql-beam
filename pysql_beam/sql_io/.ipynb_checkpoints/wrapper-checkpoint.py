@@ -1,5 +1,5 @@
 """
-This contains code for MySQL and Postgres sql database sql commands wrapeprs
+This contains code for MySQL, MSSQL and Postgres sql database sql commands wrapeprs
 
 """
 import datetime
@@ -289,7 +289,7 @@ class BaseWrapper(object):
         """
         with self.connection.cursor() as cursor:
             logging.debug("Executing Read query")
-            logging.debug(cursor.mogrify(query))
+            #logging.debug(cursor.mogrify(query))
             paginated_query, status = self.paginated_query(query, limit=batch, offset=0)
             if status:
                 size = batch
@@ -297,14 +297,17 @@ class BaseWrapper(object):
                 while size >= batch:
                     logging.debug("Paginated query")
                     logging.debug(paginated_query)
+                    print(paginated_query)
                     cursor.execute(paginated_query)
                     schema = cursor.description
                     size = cursor.rowcount
                     records = cursor.fetchall()
                     yield records, schema
                     offset = offset + batch
+                    print("second pagination?", query)
                     paginated_query, status = self.paginated_query(query, limit=batch, offset=offset)
             else:
+                print(paginated_query)
                 cursor.execute(paginated_query)
                 schema = cursor.description
                 size = cursor.rowcount
@@ -474,7 +477,35 @@ class MySQLWrapper(BaseWrapper):
     def insert_rows(self, table, rows, skip_invalid_rows=False):
         return super(MySQLWrapper, self).insert_rows(table, rows, skip_invalid_rows=skip_invalid_rows)
 
+class MSSQLWrapper(BaseWrapper):
+    """mssql client wrapper with utilities for querying.
 
+    The wrapper is used to organize all the mssql integration points and
+    offer a common place where retry logic for failures can be controlled.
+    In addition it offers various functions used both in sources and sinks
+    (e.g., find and create tables, query a table, etc.).
+    """
+
+    def get_or_create_table(self, database, table, schema, create_disposition, write_disposition):
+        return super(MSSQLWrapper, self).get_or_create_table(database, table, schema, create_disposition, write_disposition)
+
+    def insert_rows(self, table, rows, skip_invalid_rows=False):
+        return super(MSSQLWrapper, self).insert_rows(table, rows, skip_invalid_rows=skip_invalid_rows)
+    
+    @staticmethod
+    def paginated_query(query, limit, offset=0):
+        if " fetch " in query.lower():
+            return query, False
+        else:
+            query = query.strip(";")
+            if 'LIMIT' in query:
+                indx=query.index('LIMIT')
+                query= query[:indx-1]
+                #print(indx, "HERE", query[:indx-1])
+            return "{query} ORDER BY 1 OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;".format(query=query, limit=limit, offset=offset), True
+
+
+    
 class PostgresWrapper(BaseWrapper):
     """postgres client wrapper with utilities for querying.
 
@@ -569,6 +600,14 @@ class SQLWriteDoFn(beam.DoFn):
                                           user=self.username, password=self.password,
                                           database=self.database)
             connection.autocommit = self.autocommit or AUTO_COMMIT
+        elif self.wrapper == MSSQLWrapper:
+            import pyodbc
+            driver='{ODBC Driver 17 for SQL Server}'
+            connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
+                                        self.source.host+';PORT='+ str(int(self.source.port)) +
+                                        ';DATABASE='+self.source.database+';UID='+
+                                        self.source.username+';PWD='+self.source.password)
+
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
         self.connection = connection

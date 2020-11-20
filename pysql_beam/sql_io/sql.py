@@ -341,12 +341,12 @@ class SQLSourceDoFn(beam.DoFn):
 
     def process(self, query, *args, **kwargs):
         """Implements :class:`~apache_beam.io.iobase.BoundedSource.read`"""
-
+        print(query)
         source = SQLSource(*self.args, **self.kwargs)
         SQLSouceInput._build_value(source, source.runtime_params)
         self.source = source
-        logging.debug("Processing - {}".format(query))
-
+        #logging.debug("Processing - {}".format(query))
+        print(source.client, query)
         # records_schema = source.client.read(query)
         for records, schema in source.client.read(query):
             for row in records:
@@ -397,12 +397,18 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
                                            database=self.database)
             _connection.autocommit = self.autocommit or AUTO_COMMIT
         elif self.wrapper == MSSQLWrapper:
+            print('host', self.host)
+            print('port', self.port)
+            print('database', self.database)
+            print('username', self.username)
+            print('password', self.password)
+            print('query', self.query)
             import pyodbc
             driver='{ODBC Driver 17 for SQL Server}'
             _connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
-                                        self.source.host+';PORT='+ str(int(self.source.port)) +
-                                        ';DATABASE='+self.source.database+';UID='+
-                                        self.source.username+';PWD='+self.source.password)
+                                        self.host+';PORT='+ str(int(self.port)) +
+                                        ';DATABASE='+self.database+';UID='+
+                                        self.username+';PWD='+self.password)
 
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")

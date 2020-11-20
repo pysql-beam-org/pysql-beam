@@ -289,7 +289,7 @@ class BaseWrapper(object):
         """
         with self.connection.cursor() as cursor:
             logging.debug("Executing Read query")
-            logging.debug(cursor.mogrify(query))
+            #logging.debug(cursor.mogrify(query))
             paginated_query, status = self.paginated_query(query, limit=batch, offset=0)
             if status:
                 size = batch
@@ -297,14 +297,17 @@ class BaseWrapper(object):
                 while size >= batch:
                     logging.debug("Paginated query")
                     logging.debug(paginated_query)
+                    print(paginated_query)
                     cursor.execute(paginated_query)
                     schema = cursor.description
                     size = cursor.rowcount
                     records = cursor.fetchall()
                     yield records, schema
                     offset = offset + batch
+                    print("second pagination?", query)
                     paginated_query, status = self.paginated_query(query, limit=batch, offset=offset)
             else:
+                print(paginated_query)
                 cursor.execute(paginated_query)
                 schema = cursor.description
                 size = cursor.rowcount
@@ -488,6 +491,19 @@ class MSSQLWrapper(BaseWrapper):
 
     def insert_rows(self, table, rows, skip_invalid_rows=False):
         return super(MSSQLWrapper, self).insert_rows(table, rows, skip_invalid_rows=skip_invalid_rows)
+    
+    @staticmethod
+    def paginated_query(query, limit, offset=0):
+        if " fetch " in query.lower():
+            return query, False
+        else:
+            query = query.strip(";")
+            if 'LIMIT' in query:
+                indx=query.index('LIMIT')
+                query= query[:indx-1]
+                #print(indx, "HERE", query[:indx-1])
+            return "{query} ORDER BY 1 OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;".format(query=query, limit=limit, offset=offset), True
+
 
     
 class PostgresWrapper(BaseWrapper):
