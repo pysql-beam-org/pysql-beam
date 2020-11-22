@@ -536,7 +536,7 @@ class MSSQLWrapper(BaseWrapper):
                 cursor.execute(paginated_query)
                 schema = cursor.description
                 size = cursor.rowcount
-                if " limit " in paginated_query:
+                if " fetch " in paginated_query.lower():
                     records = cursor.fetchall()
                     yield records, schema
                 else:
@@ -549,6 +549,7 @@ class MSSQLWrapper(BaseWrapper):
     @staticmethod
     def paginated_query(query, limit, offset=0):
         if " fetch " in query.lower() or  " limit " in query.lower():
+            print("closing the query now", query)
             return query, False
         else:
             query = query.strip(";")

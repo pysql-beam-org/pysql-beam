@@ -221,6 +221,7 @@ class ReadFromSQL(beam.PTransform):
         self.kwargs = kwargs
 
     def expand(self, pcoll):
+        "now expanding!!!"
         return (pcoll.pipeline
                 | 'UserQuery' >> beam.Create([1])
                 | 'SplitQuery' >> beam.ParDo(PaginateQueryDoFn(*self.args, **self.kwargs))
@@ -270,7 +271,6 @@ class PaginateQueryDoFn(beam.DoFn):
             except Exception as ex:
                 logging.error(ex)
                 queries.append(query)
-
             return list(set(queries))
 
         @staticmethod
@@ -357,7 +357,9 @@ class SQLSourceDoFn(beam.DoFn):
         print(source.client, query)
         # records_schema = source.client.read(query)
         for records, schema in source.client.read(query):
+            #print("I'm doing the records NOW:", records)
             for row in records:
+                
                 yield source.client.row_as_dict(row, schema)
 
         # return records_schema
@@ -460,6 +462,7 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
             self.query = "DESCRIBE {}".format(self.table)
 
         for records, schema in self.client.read(self.query, batch=self.batch):
+            print("SQLSource records: ", records)
             if self.schema is None:
                 self.schema = schema
 
