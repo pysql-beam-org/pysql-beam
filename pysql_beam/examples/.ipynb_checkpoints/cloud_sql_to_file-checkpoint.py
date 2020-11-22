@@ -83,7 +83,7 @@ def run():
                            | 'Write to Table' >> WriteToBigQuery(
                                table= options.output_table,
                                schema = 'SCHEMA_AUTODETECT',
-                               write_disposition=BigQueryDisposition.WRITE_EMPTY,
+                               write_disposition=BigQueryDisposition.WRITE_TRUNCATE,
                                create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED)
                  )
 
