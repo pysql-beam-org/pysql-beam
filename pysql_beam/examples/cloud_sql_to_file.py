@@ -15,8 +15,8 @@ python cloud_sql_to_file.py  --host localhost  --port 5432 --database SECRET_DAT
 """
 import sys
 import json
-sys.path.insert(0, '/home/jupyter/shapiro-johannes/pysql-beam/pysql-beam')
-sys.path.insert(0, '/home/jupyter/shapiro-johannes/pysql-beam')
+sys.path.insert(0, '/home/jupyter/My_package/pysql-beam/pysql-beam')
+
 import logging
 import apache_beam as beam
 from pysql_beam.sql_io.sql import SQLSource, SQLWriter, ReadFromSQL
