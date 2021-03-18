@@ -58,13 +58,13 @@ ReadFromSQL(host=options.host, port=options.port,
 Examples:
 
     For mysql:
-    `python cloud_sql_to_file.py --host localhost --port 3306 --database SECRET_DATABASE --username SECRET_USER --password SECRET_PASSWORD --table YOUR_TABLE --output_table 'MyProject:MyDataset.MyTable'  --temp_location "gs://MyBucket/tmp"`
+    `python cloud_sql_to_bigquery.py --host localhost --port 3306 --database SECRET_DATABASE --username SECRET_USER --password SECRET_PASSWORD --table YOUR_TABLE --output_table 'MyProject:MyDataset.MyTable'  --temp_location "gs://MyBucket/tmp"`
 
     For postgres:
-    `python cloud_sql_to_file.py --host localhost --port 5432 --database SECRET_DATABASE --username SECRET_USER --password SECRET_PASSWORD --table YOUR_TABLE --output_table 'MyProject:MyDataset.MyTable'  --temp_location "gs://MyBucket/tmp"`
+    `python cloud_sql_to_bigquery.py --host localhost --port 5432 --database SECRET_DATABASE --username SECRET_USER --password SECRET_PASSWORD --table YOUR_TABLE --output_table 'MyProject:MyDataset.MyTable'  --temp_location "gs://MyBucket/tmp"`
 
     For mssql:
-    `python cloud_sql_to_file.py --host localhost --port 1433 --database SECRET_DATABASE --username SECRET_USER --password SECRET_PASSWORD --query 'SELECT * from MyTable'  --output_table 'MyProject:MyDataset.MyTable'  --temp_location "gs://MyBucket/tmp"` 
+    `python cloud_sql_to_bigquery.py --host localhost --port 1433 --database SECRET_DATABASE --username SECRET_USER --password SECRET_PASSWORD --query 'SELECT * from MyTable'  --output_table 'MyProject:MyDataset.MyTable'  --temp_location "gs://MyBucket/tmp"` 
 
 
 contribution:
