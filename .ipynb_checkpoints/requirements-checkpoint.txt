@@ -1,0 +1,5 @@
+apache-beam>=2.10<=2.12.0
+psycopg2-binary==2.8.2
+pymysql[rsa]==0.9.3  # for cryptography passwords
+requests>=2.22.0
+pyodbc

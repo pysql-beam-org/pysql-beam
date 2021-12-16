@@ -27,7 +27,7 @@ import apache_beam as beam
 from apache_beam.options import value_provider
 from apache_beam.transforms import Reshuffle
 
-from .wrapper import BaseWrapper, MySQLWrapper, PostgresWrapper, SQLDisposition, TableSchema, TableFieldSchema, SQLWriteDoFn
+from .wrapper import BaseWrapper, MySQLWrapper, MSSQLWrapper, PostgresWrapper, SQLDisposition, TableSchema, TableFieldSchema, SQLWriteDoFn
 from .exceptions import ExceptionInvalidWrapper
 
 JSON_COMPLIANCE_ERROR = 'NAN, INF and -INF values are not JSON compliant.'
@@ -96,7 +96,7 @@ class SQLReader(dataflow_io.NativeSourceReader):
 
     def _build_connection_mysql(self):
         """
-        Create connection object with mysql or postgre based on the wrapper passed
+        Create connection object with mysql, mssql or postgre based on the wrapper passed
 
         TODO://
         1. Make connection based on dsn or connection string
@@ -118,6 +118,14 @@ class SQLReader(dataflow_io.NativeSourceReader):
                                           user=self.source.username, password=self.source.password,
                                           database=self.source.database)
             connection.autocommit = self.source.autocommit or AUTO_COMMIT
+        elif self.source.wrapper == MSSQLWrapper:
+            import pyodbc
+            driver='{ODBC Driver 17 for SQL Server}'
+            connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
+                                        self.source.host+';PORT='+ str(int(self.source.port)) +
+                                        ';DATABASE='+self.source.database+';UID='+
+                                        self.source.username+';PWD='+self.source.password)
+
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
         self.connection = connection
@@ -185,10 +193,10 @@ class SQLSouceInput(object):
         self.password = password
         self.batch = batch
         self.autocommit = autocommit
-        if wrapper in [MySQLWrapper, PostgresWrapper]:
+        if wrapper in [BaseWrapper, MySQLWrapper, MSSQLWrapper, PostgresWrapper]:
             self.wrapper = wrapper
         else:
-            raise ExceptionInvalidWrapper("Wrapper can be either [MySQLWrapper, PostgresWrapper]")
+            raise ExceptionInvalidWrapper("Wrapper can be [BaseWrapper, MySQLWrapper, MSSQLWrapper,  PostgresWrapper]")
 
         self._connection = None
         self._client = None
@@ -208,10 +216,12 @@ class SQLSouceInput(object):
 class ReadFromSQL(beam.PTransform):
     def __init__(self, *args, **kwargs):
         self.source = SQLSouceInput(*args, **kwargs)
+        print("from inside the readFromSQL class, source:", self.source.wrapper)
         self.args = args
         self.kwargs = kwargs
 
     def expand(self, pcoll):
+        "now expanding!!!"
         return (pcoll.pipeline
                 | 'UserQuery' >> beam.Create([1])
                 | 'SplitQuery' >> beam.ParDo(PaginateQueryDoFn(*self.args, **self.kwargs))
@@ -230,12 +240,15 @@ class RowJsonDoFn(beam.DoFn):
 class PaginateQueryDoFn(beam.DoFn):
         def __init__(self, *args, **kwargs):
             self.args = args
+            print("pagination query do fn wrapper:", kwargs["wrapper"])
+            
             self.kwargs = kwargs
 
         def process(self, query, *args):
+            
             source = SQLSource(*self.args, **self.kwargs)
             SQLSouceInput._build_value(source, source.runtime_params)
-
+            print("we're in the process method now; source.client:", source.client)
             if query != 1:
                 source.query = query
             else:
@@ -250,7 +263,7 @@ class PaginateQueryDoFn(beam.DoFn):
                     row_count = records[0][0]
                 offsets = list(range(0, row_count, batch))
                 for offset in offsets:
-                    paginated_query, status = self.paginated_query(query, batch, offset)
+                    paginated_query, status = source.client.paginated_query(query, batch, offset)
                     queries.append(paginated_query)
                     logging.debug(("paginated query", paginated_query))
                     if not status:
@@ -258,17 +271,19 @@ class PaginateQueryDoFn(beam.DoFn):
             except Exception as ex:
                 logging.error(ex)
                 queries.append(query)
-
             return list(set(queries))
 
         @staticmethod
         def paginated_query(query, limit, offset=0):
             query = query.strip(";")
             if " limit " in query.lower():
+                
+                print(self.source.wrapper, "HERE WE ARE line 276 in sql.py!!!")
                 query = "SELECT * from ({query}) as sbq LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset)
                 return query, True
                 # return query, False
             else:
+                print("FUNKY STUFF")
                 query = query.strip(";")
                 return "{query} LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset), True
 
@@ -318,6 +333,14 @@ class SQLSourceDoFn(beam.DoFn):
                                            user=self.source.username, password=self.source.password,
                                            database=self.source.database)
             _connection.autocommit = self.source.autocommit or AUTO_COMMIT
+        elif self.source.wrapper == MSSQLWrapper:
+            import pyodbc
+            driver='{ODBC Driver 17 for SQL Server}'
+            _connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
+                                        self.source.host+';PORT='+ str(int(self.source.port)) +
+                                        ';DATABASE='+self.source.database+';UID='+
+                                        self.source.username+';PWD='+self.source.password)
+
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
 
@@ -325,15 +348,18 @@ class SQLSourceDoFn(beam.DoFn):
 
     def process(self, query, *args, **kwargs):
         """Implements :class:`~apache_beam.io.iobase.BoundedSource.read`"""
-
+        print(query)
         source = SQLSource(*self.args, **self.kwargs)
         SQLSouceInput._build_value(source, source.runtime_params)
         self.source = source
-        logging.debug("Processing - {}".format(query))
-
+        print("here I'm now reading from source client:", source.client)
+        #logging.debug("Processing - {}".format(query))
+        print(source.client, query)
         # records_schema = source.client.read(query)
         for records, schema in source.client.read(query):
+            #print("I'm doing the records NOW:", records)
             for row in records:
+                
                 yield source.client.row_as_dict(row, schema)
 
         # return records_schema
@@ -380,6 +406,20 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
                                            user=self.username, password=self.password,
                                            database=self.database)
             _connection.autocommit = self.autocommit or AUTO_COMMIT
+        elif self.wrapper == MSSQLWrapper:
+            print('host', self.host)
+            print('port', self.port)
+            print('database', self.database)
+            print('username', self.username)
+            print('password', self.password)
+            print('query', self.query)
+            import pyodbc
+            driver='{ODBC Driver 17 for SQL Server}'
+            _connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
+                                        self.host+';PORT='+ str(int(self.port)) +
+                                        ';DATABASE='+self.database+';UID='+
+                                        self.username+';PWD='+self.password)
+
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
 
@@ -422,6 +462,7 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
             self.query = "DESCRIBE {}".format(self.table)
 
         for records, schema in self.client.read(self.query, batch=self.batch):
+            print("SQLSource records: ", records)
             if self.schema is None:
                 self.schema = schema
 
@@ -563,10 +604,10 @@ class SQLWriter(beam.PTransform):
         self.port = port
         self.username = username
         self.password = password
-        if wrapper in [MySQLWrapper, PostgresWrapper]:
+        if wrapper in [MySQLWrapper, MSSQLWrapper, PostgresWrapper]:
             self.wrapper = wrapper
         else:
-            raise ExceptionInvalidWrapper("Wrapper can be either [MySQLWrapper, PostgresWrapper]")
+            raise ExceptionInvalidWrapper("Wrapper can be in [MySQLWrapper, MSSQLWrapper, PostgresWrapper]")
 
         self.table = table
         self.database = database
@@ -646,6 +687,14 @@ class SQLWriter(beam.PTransform):
                                           user=self.username, password=self.password,
                                           database=self.database)
             connection.autocommit = self.autocommit or AUTO_COMMIT
+        elif self.wrapper ==MSSQLWrapper:
+            import pyodbc
+            driver='{ODBC Driver 17 for SQL Server}'
+            connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
+                                        self.source.host+';PORT='+ str(int(self.source.port)) +
+                                        ';DATABASE='+self.source.database+';UID='+
+                                        self.source.username+';PWD='+self.source.password)
+
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
         self.connection = connection
