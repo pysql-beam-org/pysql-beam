@@ -20,7 +20,7 @@ Installation:
     
     1. pip install git+git@github.com:MediaAgility/pysql-beam.git
     or 
-    2. pip installl pysql-beam
+    2. pip install pysql-beam
 
 
 Current functionality:
