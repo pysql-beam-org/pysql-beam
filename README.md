@@ -48,7 +48,7 @@ from pysql_beam.sql_io.sql import ReadFromSQL
 ....
 ReadFromSQL(host=options.host, port=options.port,
         username=options.username, password=options.password,
-        databse=options.database,
+        database=options.database,
         query=options.source_query,
         wrapper=PostgresWrapper,
         batch=100000)
