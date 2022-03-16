@@ -216,7 +216,7 @@ class SQLSouceInput(object):
 class ReadFromSQL(beam.PTransform):
     def __init__(self, *args, **kwargs):
         self.source = SQLSouceInput(*args, **kwargs)
-        print("from inside the readFromSQL class, source:", self.source.wrapper)
+        logging.info(f"from inside the readFromSQL class, source: {self.source.wrapper}")
         self.args = args
         self.kwargs = kwargs
 
@@ -240,7 +240,7 @@ class RowJsonDoFn(beam.DoFn):
 class PaginateQueryDoFn(beam.DoFn):
         def __init__(self, *args, **kwargs):
             self.args = args
-            print("pagination query do fn wrapper:", kwargs["wrapper"])
+            logging.info(f"pagination query do fn wrapper:{kwargs['wrapper']"})
             
             self.kwargs = kwargs
 
@@ -248,7 +248,7 @@ class PaginateQueryDoFn(beam.DoFn):
             
             source = SQLSource(*self.args, **self.kwargs)
             SQLSouceInput._build_value(source, source.runtime_params)
-            print("we're in the process method now; source.client:", source.client)
+            logging.info(f"we're in the process method now; source.client: {source.client}")
             if query != 1:
                 source.query = query
             else:
@@ -277,13 +277,10 @@ class PaginateQueryDoFn(beam.DoFn):
         def paginated_query(query, limit, offset=0):
             query = query.strip(";")
             if " limit " in query.lower():
-                
-                print(self.source.wrapper, "HERE WE ARE line 276 in sql.py!!!")
                 query = "SELECT * from ({query}) as sbq LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset)
                 return query, True
                 # return query, False
             else:
-                print("FUNKY STUFF")
                 query = query.strip(";")
                 return "{query} LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset), True
 
@@ -348,22 +345,14 @@ class SQLSourceDoFn(beam.DoFn):
 
     def process(self, query, *args, **kwargs):
         """Implements :class:`~apache_beam.io.iobase.BoundedSource.read`"""
-        print(query)
         source = SQLSource(*self.args, **self.kwargs)
         SQLSouceInput._build_value(source, source.runtime_params)
         self.source = source
-        print("here I'm now reading from source client:", source.client)
-        #logging.debug("Processing - {}".format(query))
-        print(source.client, query)
         # records_schema = source.client.read(query)
         for records, schema in source.client.read(query):
-            #print("I'm doing the records NOW:", records)
             for row in records:
                 
                 yield source.client.row_as_dict(row, schema)
-
-        # return records_schema
-
 
 class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
     """
@@ -407,12 +396,6 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
                                            database=self.database)
             _connection.autocommit = self.autocommit or AUTO_COMMIT
         elif self.wrapper == MSSQLWrapper:
-            print('host', self.host)
-            print('port', self.port)
-            print('database', self.database)
-            print('username', self.username)
-            print('password', self.password)
-            print('query', self.query)
             import pyodbc
             driver='{ODBC Driver 17 for SQL Server}'
             _connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
