@@ -240,7 +240,7 @@ class RowJsonDoFn(beam.DoFn):
 class PaginateQueryDoFn(beam.DoFn):
         def __init__(self, *args, **kwargs):
             self.args = args
-            logging.info(f"pagination query do fn wrapper:{kwargs['wrapper']"})
+            logging.info(f"pagination query do fn wrapper:{kwargs['wrapper']}")
             
             self.kwargs = kwargs
 
