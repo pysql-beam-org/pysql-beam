@@ -1,0 +1,51 @@
+repos:
+  # must be initialized via pre-commit install
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.2.0
+    hooks:
+      - id: check-added-large-files # Prevent giant files from being committed
+      - id: check-docstring-first # Checks a common error of defining a docstring after code.
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: end-of-file-fixer
+        exclude_types: [svg]
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v2.6.2
+    hooks:
+      - id: prettier
+        exclude: >
+          (?x)^(
+              .*\.yaml
+          )$
+
+  # Check for typos
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.1.0
+    hooks:
+      - id: codespell
+        args: [--ignore-words=allow.txt, --exclude-file=allow.txt]
+
+#  - repo: https://github.com/asottile/pyupgrade
+#    rev: v2.29.1
+#    hooks:
+#      - id: pyupgrade
+#        args: ["--py38-plus"]
+
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.4
+    hooks:
+      - id: bandit

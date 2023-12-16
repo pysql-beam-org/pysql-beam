@@ -4,6 +4,7 @@ Making the module installable
 """
 
 import setuptools
+
 with open("./README.md", "r") as fh:
     readme = fh.read()
 
@@ -13,7 +14,7 @@ with open("./requirements.txt", "r") as dependency:
 version = "0.2"
 
 setuptools.setup(
-    name='pysql-beam',
+    name="pysql-beam",
     version=version,
     author="Deepak Verma",
     author_email="yesdeepakverma@gmail.com",
@@ -29,9 +30,9 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3",
-        'License :: OSI Approved :: MIT License',
-        'Intended Audience :: Developers',
+        "License :: OSI Approved :: MIT License",
+        "Intended Audience :: Developers",
         "Operating System :: OS Independent",
     ],
     keywords="apache-beam,mysql,postgres,python,io,source,sink,read,write,database",
- )
+)

@@ -8,18 +8,15 @@ TODO://
 """
 import decimal
 import json
-from apache_beam.io import iobase
-from apache_beam.metrics import Metrics
-from apache_beam.io.range_trackers import OffsetRangeTracker
-from apache_beam.runners.dataflow.native_io import iobase as dataflow_io
-from apache_beam.transforms.display import DisplayDataItem
-from apache_beam import coders
+import logging
 import os
 import requests
-import logging
+from apache_beam import coders
+from apache_beam.runners.dataflow.native_io import iobase as dataflow_io
+from apache_beam.transforms.display import DisplayDataItem
 
 try:
-    from apitools.base.py.exceptions import HttpError
+    from apitools.base.py.exceptions import HttpError  # noqa: F401
 except ImportError:
     pass
 
@@ -27,13 +24,22 @@ import apache_beam as beam
 from apache_beam.options import value_provider
 from apache_beam.transforms import Reshuffle
 
-from .wrapper import BaseWrapper, MySQLWrapper, MSSQLWrapper, PostgresWrapper, SQLDisposition, TableSchema, TableFieldSchema, SQLWriteDoFn
+from .wrapper import (
+    BaseWrapper,
+    MySQLWrapper,
+    MSSQLWrapper,
+    PostgresWrapper,
+    SQLDisposition,
+    TableSchema,
+    TableFieldSchema,
+    SQLWriteDoFn,
+)
 from .exceptions import ExceptionInvalidWrapper
 
-JSON_COMPLIANCE_ERROR = 'NAN, INF and -INF values are not JSON compliant.'
+JSON_COMPLIANCE_ERROR = "NAN, INF and -INF values are not JSON compliant."
 MAX_RETRIES = 5
 TABLE_TRUNCATE_SLEEP = 150
-DATETIME_FMT = '%Y-%m-%d %H:%M:%S.%f UTC'
+DATETIME_FMT = "%Y-%m-%d %H:%M:%S.%f UTC"
 CONNECTION_INIT_TIMEOUT = 60
 READ_COMMITTED = True
 AUTO_COMMIT = False
@@ -41,11 +47,13 @@ READ_BATCH = 1000
 WRITE_BATCH = 1000
 MAX_QUERY_SPLIT = 50000
 
+
 def default_encoder(obj):
     if isinstance(obj, decimal.Decimal):
         return str(obj)
     raise TypeError(
-        "Object of type '%s' is not JSON serializable" % type(obj).__name__)
+        "Object of type '%s' is not JSON serializable" % type(obj).__name__
+    )  # noqa: E501
 
 
 class RowAsDictJsonCoder(coders.Coder):
@@ -62,12 +70,13 @@ class RowAsDictJsonCoder(coders.Coder):
         # to the programmer that they have used NAN/INF values.
         try:
             return json.dumps(
-                table_row, allow_nan=False, default=default_encoder).encode('utf-8')
+                table_row, allow_nan=False, default=default_encoder
+            ).encode("utf-8")
         except ValueError as e:
-            raise ValueError('%s. %s' % (e, JSON_COMPLIANCE_ERROR))
+            raise ValueError("%s. %s" % (e, JSON_COMPLIANCE_ERROR))
 
     def decode(self, encoded_table_row):
-        return json.loads(encoded_table_row.decode('utf-8'))
+        return json.loads(encoded_table_row.decode("utf-8"))
 
 
 class SQLReader(dataflow_io.NativeSourceReader):
@@ -88,7 +97,9 @@ class SQLReader(dataflow_io.NativeSourceReader):
         self.kms_key = kms_key
 
         if self.source.table is not None:
-            self.query = """SELECT * FROM {};""".format(self.source.table)
+            self.query = """SELECT * FROM {};""".format(  # nosec CWE-89
+                self.source.table
+            )  # nosec CWE-89
         elif self.source.query is not None:
             self.query = self.source.query
         else:
@@ -96,7 +107,8 @@ class SQLReader(dataflow_io.NativeSourceReader):
 
     def _build_connection_mysql(self):
         """
-        Create connection object with mysql, mssql or postgre based on the wrapper passed
+        Create connection object with mysql, mssql or postgre based
+        on the wrapper passed
 
         TODO://
         1. Make connection based on dsn or connection string
@@ -108,23 +120,45 @@ class SQLReader(dataflow_io.NativeSourceReader):
 
         if self.source.wrapper == MySQLWrapper:
             import pymysql
-            connection = pymysql.connect(host=self.source.host, port=int(self.source.port),
-                                         user=self.source.username, password=self.source.password,
-                                         database=self.source.database,
-                                         connect_timeout=CONNECTION_INIT_TIMEOUT, autocommit=AUTO_COMMIT)
+
+            connection = pymysql.connect(
+                host=self.source.host,
+                port=int(self.source.port),
+                user=self.source.username,
+                password=self.source.password,
+                database=self.source.database,
+                connect_timeout=CONNECTION_INIT_TIMEOUT,
+                autocommit=AUTO_COMMIT,
+            )
         elif self.source.wrapper == PostgresWrapper:
             import psycopg2
-            connection = psycopg2.connect(host=self.source.host, port=int(self.source.port),
-                                          user=self.source.username, password=self.source.password,
-                                          database=self.source.database)
+
+            connection = psycopg2.connect(
+                host=self.source.host,
+                port=int(self.source.port),
+                user=self.source.username,
+                password=self.source.password,
+                database=self.source.database,
+            )
             connection.autocommit = self.source.autocommit or AUTO_COMMIT
         elif self.source.wrapper == MSSQLWrapper:
             import pyodbc
-            driver='{ODBC Driver 17 for SQL Server}'
-            connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
-                                        self.source.host+';PORT='+ str(int(self.source.port)) +
-                                        ';DATABASE='+self.source.database+';UID='+
-                                        self.source.username+';PWD='+self.source.password)
+
+            driver = "{ODBC Driver 17 for SQL Server}"
+            connection = pyodbc.connect(
+                "DRIVER="
+                + driver
+                + ";SERVER="
+                + self.source.host
+                + ";PORT="
+                + str(int(self.source.port))
+                + ";DATABASE="
+                + self.source.database
+                + ";UID="
+                + self.source.username
+                + ";PWD="
+                + self.source.password
+            )
 
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
@@ -144,7 +178,7 @@ class SQLReader(dataflow_io.NativeSourceReader):
         :param traceback:
         :return:
         """
-        if hasattr(self.connection, 'close'):
+        if hasattr(self.connection, "close"):
             self.connection.close()
 
     def __iter__(self):
@@ -156,20 +190,38 @@ class SQLReader(dataflow_io.NativeSourceReader):
 
 
 class SQLSouceInput(object):
-    def __init__(self, host=None, port=None, username=None, password=None,
-                 database=None, table=None, query=None, sql_url=None, sql_url_auth_header=None,
-                 validate=False, coder=None, batch=READ_BATCH, autocommit=AUTO_COMMIT, wrapper=MySQLWrapper, schema_only=False, *args, **kwargs):
+    def __init__(
+        self,
+        host=None,
+        port=None,
+        username=None,
+        password=None,
+        database=None,
+        table=None,
+        query=None,
+        sql_url=None,
+        sql_url_auth_header=None,
+        validate=False,
+        coder=None,
+        batch=READ_BATCH,
+        autocommit=AUTO_COMMIT,
+        wrapper=MySQLWrapper,
+        schema_only=False,
+        *args,
+        **kwargs,
+    ):
         """
 
         :param host: db host ip address or domain
-        :param port: db port 
+        :param port: db port
         :param username: db username
         :param password: db password
         :param database: db connecting database
         :param table: table to fetch data, all data will be fetched in cursor
-        :param query: query sting to fetch. either query or table can be passed
+        :param query: query string to fetch. either query or table can be passed
         :param sql_url: url of sql file to download and use the sql url as query
-        :param sql_url_auth_header: auth header to download from sql_url, should be json string, which will be decoded at calling time, default to no header
+        :param sql_url_auth_header: auth header to download from sql_url, should be json string,
+                which will be decoded at calling time, default to no header
         :param validate: validation ? not used as of now
         :param coder: default coder to use
         :param batch: size of match to read the records default to READ_BATCH, not used
@@ -196,16 +248,28 @@ class SQLSouceInput(object):
         if wrapper in [BaseWrapper, MySQLWrapper, MSSQLWrapper, PostgresWrapper]:
             self.wrapper = wrapper
         else:
-            raise ExceptionInvalidWrapper("Wrapper can be [BaseWrapper, MySQLWrapper, MSSQLWrapper,  PostgresWrapper]")
+            raise ExceptionInvalidWrapper(
+                "Wrapper can be [BaseWrapper, MySQLWrapper, MSSQLWrapper,  PostgresWrapper]"
+            )
 
         self._connection = None
         self._client = None
         self.schema = None
         self.schema_only = schema_only
 
-        self.runtime_params = ['host', 'port', 'username', 'password', 'database',
-                               'table', 'query', 'sql_url', 'sql_url_auth_header',
-                               'batch', 'schema_only']
+        self.runtime_params = [
+            "host",
+            "port",
+            "username",
+            "password",
+            "database",
+            "table",
+            "query",
+            "sql_url",
+            "sql_url_auth_header",
+            "batch",
+            "schema_only",
+        ]
 
     @staticmethod
     def _build_value(source, keys):
@@ -216,73 +280,91 @@ class SQLSouceInput(object):
 class ReadFromSQL(beam.PTransform):
     def __init__(self, *args, **kwargs):
         self.source = SQLSouceInput(*args, **kwargs)
-        logging.info(f"from inside the readFromSQL class, source: {self.source.wrapper}")
+        logging.info(
+            f"from inside the readFromSQL class, source: {self.source.wrapper}"
+        )
         self.args = args
         self.kwargs = kwargs
 
     def expand(self, pcoll):
         "now expanding!!!"
-        return (pcoll.pipeline
-                | 'UserQuery' >> beam.Create([1])
-                | 'SplitQuery' >> beam.ParDo(PaginateQueryDoFn(*self.args, **self.kwargs))
-                | "reshuffle" >> Reshuffle()
-                | 'Read' >> beam.ParDo(SQLSourceDoFn(*self.args, **self.kwargs))
-                )
+        return (
+            pcoll.pipeline
+            | "UserQuery" >> beam.Create([1])
+            | "SplitQuery" >> beam.ParDo(PaginateQueryDoFn(*self.args, **self.kwargs))
+            | "reshuffle" >> Reshuffle()
+            | "Read" >> beam.ParDo(SQLSourceDoFn(*self.args, **self.kwargs))
+        )
 
 
 class RowJsonDoFn(beam.DoFn):
     def process(self, element, *args, **kwargs):
         for row in element[0]:
-            cols = [{'name': col.name, 'type_code': col.type_code} for col in element[1]]
+            cols = [
+                {"name": col.name, "type_code": col.type_code} for col in element[1]
+            ]
             yield BaseWrapper.convert_row_to_dict(row, cols)
 
 
 class PaginateQueryDoFn(beam.DoFn):
-        def __init__(self, *args, **kwargs):
-            self.args = args
-            logging.info(f"pagination query do fn wrapper:{kwargs['wrapper']}")
-            
-            self.kwargs = kwargs
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        logging.info(f"pagination query do fn wrapper:{kwargs['wrapper']}")
 
-        def process(self, query, *args):
-            
-            source = SQLSource(*self.args, **self.kwargs)
-            SQLSouceInput._build_value(source, source.runtime_params)
-            logging.info(f"we're in the process method now; source.client: {source.client}")
-            if query != 1:
-                source.query = query
-            else:
-                source.query = source.query.strip(";")
-            query = source.query
-            row_count_query = "select count(1) as row_count from ({}) as subq".format(query)
-            row_count = 0
-            queries = []
-            try:
-                batch = source.batch
-                for records, schema in source.client.read(row_count_query, batch=batch):
-                    row_count = records[0][0]
-                offsets = list(range(0, row_count, batch))
-                for offset in offsets:
-                    paginated_query, status = source.client.paginated_query(query, batch, offset)
-                    queries.append(paginated_query)
-                    logging.debug(("paginated query", paginated_query))
-                    if not status:
-                        break
-            except Exception as ex:
-                logging.error(ex)
-                queries.append(query)
-            return list(set(queries))
+        self.kwargs = kwargs
 
-        @staticmethod
-        def paginated_query(query, limit, offset=0):
+    def process(self, query, *args):
+
+        source = SQLSource(*self.args, **self.kwargs)
+        SQLSouceInput._build_value(source, source.runtime_params)
+        logging.info(f"we're in the process method now; source.client: {source.client}")
+        if query != 1:
+            source.query = query
+        else:
+            source.query = source.query.strip(";")
+        query = source.query
+        row_count_query = (
+            "select count(1) as row_count from ({}) as subq".format(  # nosec CWE-89
+                query
+            )
+        )  # nosec CWE-89
+        row_count = 0
+        queries = []
+        try:
+            batch = source.batch
+            for records, schema in source.client.read(row_count_query, batch=batch):
+                row_count = records[0][0]
+            offsets = list(range(0, row_count, batch))
+            for offset in offsets:
+                paginated_query, status = source.client.paginated_query(
+                    query, batch, offset
+                )
+                queries.append(paginated_query)
+                logging.debug(("paginated query", paginated_query))
+                if not status:
+                    break
+        except Exception as ex:
+            logging.error(ex)
+            queries.append(query)
+        return list(set(queries))
+
+    @staticmethod
+    def paginated_query(query, limit, offset=0):
+        query = query.strip(";")
+        if " limit " in query.lower():
+            query = "SELECT * from ({query}) as sbq LIMIT {limit} OFFSET {offset}".format(  # nosec CWE-89
+                query=query, limit=limit, offset=offset
+            )
+            return query, True
+            # return query, False
+        else:
             query = query.strip(";")
-            if " limit " in query.lower():
-                query = "SELECT * from ({query}) as sbq LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset)
-                return query, True
-                # return query, False
-            else:
-                query = query.strip(";")
-                return "{query} LIMIT {limit} OFFSET {offset}".format(query=query, limit=limit, offset=offset), True
+            return (
+                "{query} LIMIT {limit} OFFSET {offset}".format(
+                    query=query, limit=limit, offset=offset
+                ),
+                True,
+            )
 
 
 class SQLSourceDoFn(beam.DoFn):
@@ -309,7 +391,7 @@ class SQLSourceDoFn(beam.DoFn):
         :return:
         """
 
-        if self.source._connection is not None and hasattr(self._connection, 'close'):
+        if self.source._connection is not None and hasattr(self._connection, "close"):
             self._client = self.source.wrapper(connection=self._connection)
             return self._client
 
@@ -320,23 +402,45 @@ class SQLSourceDoFn(beam.DoFn):
     def _create_connection(self):
         if self.source.wrapper == MySQLWrapper:
             import pymysql
-            _connection = pymysql.connect(host=self.source.host, port=int(self.source.port),
-                                          user=self.source.username, password=self.source.password,
-                                          database=self.source.database,
-                                          connect_timeout=CONNECTION_INIT_TIMEOUT, autocommit=AUTO_COMMIT)
+
+            _connection = pymysql.connect(
+                host=self.source.host,
+                port=int(self.source.port),
+                user=self.source.username,
+                password=self.source.password,
+                database=self.source.database,
+                connect_timeout=CONNECTION_INIT_TIMEOUT,
+                autocommit=AUTO_COMMIT,
+            )
         elif self.source.wrapper == PostgresWrapper:
             import psycopg2
-            _connection = psycopg2.connect(host=self.source.host, port=int(self.source.port),
-                                           user=self.source.username, password=self.source.password,
-                                           database=self.source.database)
+
+            _connection = psycopg2.connect(
+                host=self.source.host,
+                port=int(self.source.port),
+                user=self.source.username,
+                password=self.source.password,
+                database=self.source.database,
+            )
             _connection.autocommit = self.source.autocommit or AUTO_COMMIT
         elif self.source.wrapper == MSSQLWrapper:
             import pyodbc
-            driver='{ODBC Driver 17 for SQL Server}'
-            _connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
-                                        self.source.host+';PORT='+ str(int(self.source.port)) +
-                                        ';DATABASE='+self.source.database+';UID='+
-                                        self.source.username+';PWD='+self.source.password)
+
+            driver = "{ODBC Driver 17 for SQL Server}"
+            _connection = pyodbc.connect(
+                "DRIVER="
+                + driver
+                + ";SERVER="
+                + self.source.host
+                + ";PORT="
+                + str(int(self.source.port))
+                + ";DATABASE="
+                + self.source.database
+                + ";UID="
+                + self.source.username
+                + ";PWD="
+                + self.source.password
+            )
 
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
@@ -351,8 +455,8 @@ class SQLSourceDoFn(beam.DoFn):
         # records_schema = source.client.read(query)
         for records, schema in source.client.read(query):
             for row in records:
-                
                 yield source.client.row_as_dict(row, schema)
+
 
 class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
     """
@@ -374,7 +478,7 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
         :return:
         """
         self._build_value(self.runtime_params)
-        if self._connection is not None and hasattr(self._connection, 'close'):
+        if self._connection is not None and hasattr(self._connection, "close"):
             self._client = self.wrapper(connection=self._connection)
             return self._client
 
@@ -385,23 +489,45 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
     def _create_connection(self):
         if self.wrapper == MySQLWrapper:
             import pymysql
-            _connection = pymysql.connect(host=self.host, port=int(self.port),
-                                          user=self.username, password=self.password,
-                                          database=self.database,
-                                          connect_timeout=CONNECTION_INIT_TIMEOUT, autocommit=AUTO_COMMIT)
+
+            _connection = pymysql.connect(
+                host=self.host,
+                port=int(self.port),
+                user=self.username,
+                password=self.password,
+                database=self.database,
+                connect_timeout=CONNECTION_INIT_TIMEOUT,
+                autocommit=AUTO_COMMIT,
+            )
         elif self.wrapper == PostgresWrapper:
             import psycopg2
-            _connection = psycopg2.connect(host=self.host, port=int(self.port),
-                                           user=self.username, password=self.password,
-                                           database=self.database)
+
+            _connection = psycopg2.connect(
+                host=self.host,
+                port=int(self.port),
+                user=self.username,
+                password=self.password,
+                database=self.database,
+            )
             _connection.autocommit = self.autocommit or AUTO_COMMIT
         elif self.wrapper == MSSQLWrapper:
             import pyodbc
-            driver='{ODBC Driver 17 for SQL Server}'
-            _connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
-                                        self.host+';PORT='+ str(int(self.port)) +
-                                        ';DATABASE='+self.database+';UID='+
-                                        self.username+';PWD='+self.password)
+
+            driver = "{ODBC Driver 17 for SQL Server}"
+            _connection = pyodbc.connect(
+                "DRIVER="
+                + driver
+                + ";SERVER="
+                + self.host
+                + ";PORT="
+                + str(int(self.port))
+                + ";DATABASE="
+                + self.database
+                + ";UID="
+                + self.username
+                + ";PWD="
+                + self.password
+            )
 
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
@@ -421,7 +547,9 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
 
         # Use an unsplittable range tracker. This means that a collection can
         # only be read sequentially for now.
-        range_tracker = beam.io.range_trackers.OffsetRangeTracker(start_position, stop_position)
+        range_tracker = beam.io.range_trackers.OffsetRangeTracker(
+            start_position, stop_position
+        )
         range_tracker = beam.io.range_trackers.UnsplittableRangeTracker(range_tracker)
 
         return range_tracker
@@ -431,7 +559,7 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
         self._build_value(self.runtime_params)
 
         if self.table is not None:
-            self.query = """SELECT * FROM {}""".format(self.table)
+            self.query = """SELECT * FROM {}""".format(self.table)  # nosec CWE-89
         elif self.query is not None:
             self.query = self.query
         elif self.sql_url is not None:
@@ -462,10 +590,12 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
 
     def _validate(self):
         if self.table is not None and self.query is not None:
-            raise ValueError('Both a table and a query were specified.'
-                             ' Please specify only one of these.')
+            raise ValueError(
+                "Both a table and a query were specified."
+                " Please specify only one of these."
+            )
         elif self.table is None and self.query is None:
-            raise ValueError('A table or a query must be specified')
+            raise ValueError("A table or a query must be specified")
         elif self.table is not None:
             self.table = self.table
             self.query = None
@@ -489,7 +619,8 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
             weight=1,
             source=self,
             start_position=start_position,
-            stop_position=stop_position)
+            stop_position=stop_position,
+        )
 
     @staticmethod
     def get_value(value_obj):
@@ -500,9 +631,9 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
         """
         if callable(value_obj):
             return value_obj()
-        if hasattr(value_obj, 'get'):
+        if hasattr(value_obj, "get"):
             return value_obj.get()
-        elif hasattr(value_obj, 'value'):
+        elif hasattr(value_obj, "value"):
             return value_obj.value
         else:
             return value_obj
@@ -512,10 +643,14 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
         try:
             headers = json.loads(auth_headers)
         except Exception as ex:
-            logging.debug("Could not json.loads the auth headers, {}, exception {}".format(auth_headers, ex))
+            logging.debug(
+                "Could not json.loads the auth headers, {}, exception {}".format(
+                    auth_headers, ex
+                )
+            )
             headers = None
         if os.path.exists(url) and os.path.isfile(url):
-            with open(url, 'r') as fobj:
+            with open(url, "r") as fobj:
                 return fobj.read()
         else:
             logging.info("Downloading form {}".format(url))
@@ -525,28 +660,33 @@ class SQLSource(SQLSouceInput, beam.io.iobase.BoundedSource):
                 logging.debug(("Downloaded query ", query))
                 return query
             else:
-                raise Exception("Could not successfully download data from {}, text, {}, status: {}".format(url, res.text, res.status_code))
+                raise Exception(
+                    "Could not successfully download data from {}, text, {}, status: {}".format(
+                        url, res.text, res.status_code
+                    )
+                )
 
 
 class SQLWriter(beam.PTransform):
-
-    def __init__(self,
-                 host,
-                 port,
-                 username,
-                 password,
-                 database,
-                 table,
-                 schema=None,
-                 create_disposition=SQLDisposition.CREATE_NEVER,
-                 write_disposition=SQLDisposition.WRITE_APPEND,
-                 batch_size=WRITE_BATCH,
-                 test_client=None,
-                 insert_retry_strategy=None,
-                 validate=True,
-                 coder=None,
-                 autocommit=AUTO_COMMIT,
-                 wrapper=MySQLWrapper):
+    def __init__(
+        self,
+        host,
+        port,
+        username,
+        password,
+        database,
+        table,
+        schema=None,
+        create_disposition=SQLDisposition.CREATE_NEVER,
+        write_disposition=SQLDisposition.WRITE_APPEND,
+        batch_size=WRITE_BATCH,
+        test_client=None,
+        insert_retry_strategy=None,
+        validate=True,
+        coder=None,
+        autocommit=AUTO_COMMIT,
+        wrapper=MySQLWrapper,
+    ):
 
         """
         TODO://
@@ -571,10 +711,8 @@ class SQLWriter(beam.PTransform):
         :param autocommit:
         :param wrapper:
         """
-        self.create_disposition = SQLDisposition.validate_create(
-            create_disposition)
-        self.write_disposition = SQLDisposition.validate_write(
-            write_disposition)
+        self.create_disposition = SQLDisposition.validate_create(create_disposition)
+        self.write_disposition = SQLDisposition.validate_write(write_disposition)
         self.schema = SQLWriter.get_dict_table_schema(schema)
         self.batch_size = batch_size
         self.test_client = test_client
@@ -590,7 +728,9 @@ class SQLWriter(beam.PTransform):
         if wrapper in [MySQLWrapper, MSSQLWrapper, PostgresWrapper]:
             self.wrapper = wrapper
         else:
-            raise ExceptionInvalidWrapper("Wrapper can be in [MySQLWrapper, MSSQLWrapper, PostgresWrapper]")
+            raise ExceptionInvalidWrapper(
+                "Wrapper can be in [MySQLWrapper, MSSQLWrapper, PostgresWrapper]"
+            )
 
         self.table = table
         self.database = database
@@ -600,51 +740,57 @@ class SQLWriter(beam.PTransform):
     @staticmethod
     def get_table_schema_from_string(schema):
         table_schema = TableSchema()
-        schema_list = [s.strip() for s in schema.split(',')]
+        schema_list = [s.strip() for s in schema.split(",")]
         for field_and_type in schema_list:
-            field_name, field_type = field_and_type.split(':')
+            field_name, field_type = field_and_type.split(":")
             field_schema = TableFieldSchema()
             field_schema.name = field_name
             field_schema.type = field_type
-            field_schema.mode = 'NULLABLE'
+            field_schema.mode = "NULLABLE"
             table_schema.fields.append(field_schema)
         return table_schema
 
     @staticmethod
     def table_schema_to_dict(table_schema):
-        """Create a dictionary representation of table schema for serialization
-        """
+        """Create a dictionary representation of table schema for serialization"""
+
         def get_table_field(field_spec):
-            """Create a dictionary representation of a table field
-            """
+            """Create a dictionary representation of a table field"""
             result = dict()
-            result['name'] = field_spec.name
-            result['type'] = field_spec.type
-            result['mode'] = getattr(field_spec, 'mode', 'NULLABLE')
-            if hasattr(field_spec, 'description') and field_spec.description is not None:
-                result['description'] = field_spec.description
-            if hasattr(field_spec, 'fields') and field_spec.fields:
-                result['fields'] = [get_table_field(f) for f in field_spec.fields]
+            result["name"] = field_spec.name
+            result["type"] = field_spec.type
+            result["mode"] = getattr(field_spec, "mode", "NULLABLE")
+            if (
+                hasattr(field_spec, "description")
+                and field_spec.description is not None
+            ):
+                result["description"] = field_spec.description
+            if hasattr(field_spec, "fields") and field_spec.fields:
+                result["fields"] = [get_table_field(f) for f in field_spec.fields]
             return result
 
         if not isinstance(table_schema, TableSchema):
             raise ValueError("Table schema must be of the type sql.TableSchema")
-        schema = {'fields': []}
+        schema = {"fields": []}
         for field in table_schema.fields:
-            schema['fields'].append(get_table_field(field))
+            schema["fields"].append(get_table_field(field))
         return schema
 
     @staticmethod
     def get_dict_table_schema(schema):
-        if isinstance(schema, (dict, value_provider.ValueProvider)) or callable(schema) or schema is None:
+        if (
+            isinstance(schema, (dict, value_provider.ValueProvider))
+            or callable(schema)
+            or schema is None
+        ):
             return schema
-        elif isinstance(schema, (str, )):
+        elif isinstance(schema, (str,)):
             table_schema = SQLWriter.get_table_schema_from_string(schema)
             return SQLWriter.table_schema_to_dict(table_schema)
         elif isinstance(schema, TableSchema):
             return SQLWriter.table_schema_to_dict(schema)
         else:
-            raise TypeError('Unexpected schema argument: %s.' % schema)
+            raise TypeError("Unexpected schema argument: %s." % schema)
 
     def _build_connection_mysql(self):
         """
@@ -660,23 +806,45 @@ class SQLWriter(beam.PTransform):
 
         if self.wrapper == MySQLWrapper:
             import pymysql
-            connection = pymysql.connect(host=self.host, port=int(self.port),
-                                         user=self.username, password=self.password,
-                                         database=self.database,
-                                         connect_timeout=CONNECTION_INIT_TIMEOUT, autocommit=AUTO_COMMIT)
+
+            connection = pymysql.connect(
+                host=self.host,
+                port=int(self.port),
+                user=self.username,
+                password=self.password,
+                database=self.database,
+                connect_timeout=CONNECTION_INIT_TIMEOUT,
+                autocommit=AUTO_COMMIT,
+            )
         elif self.wrapper == PostgresWrapper:
             import psycopg2
-            connection = psycopg2.connect(host=self.host, port=int(self.port),
-                                          user=self.username, password=self.password,
-                                          database=self.database)
+
+            connection = psycopg2.connect(
+                host=self.host,
+                port=int(self.port),
+                user=self.username,
+                password=self.password,
+                database=self.database,
+            )
             connection.autocommit = self.autocommit or AUTO_COMMIT
-        elif self.wrapper ==MSSQLWrapper:
+        elif self.wrapper == MSSQLWrapper:
             import pyodbc
-            driver='{ODBC Driver 17 for SQL Server}'
-            connection = pyodbc.connect('DRIVER='+driver+';SERVER='+
-                                        self.source.host+';PORT='+ str(int(self.source.port)) +
-                                        ';DATABASE='+self.source.database+';UID='+
-                                        self.source.username+';PWD='+self.source.password)
+
+            driver = "{ODBC Driver 17 for SQL Server}"
+            connection = pyodbc.connect(
+                "DRIVER="
+                + driver
+                + ";SERVER="
+                + self.source.host
+                + ";PORT="
+                + str(int(self.source.port))
+                + ";DATABASE="
+                + self.source.database
+                + ";UID="
+                + self.source.username
+                + ";PWD="
+                + self.source.password
+            )
 
         else:
             raise ExceptionInvalidWrapper("Invalid wrapper passed")
@@ -684,27 +852,28 @@ class SQLWriter(beam.PTransform):
         return connection
 
     def expand(self, pcoll):
-        p = pcoll.pipeline
+        # p = pcoll.pipeline
 
-        return (pcoll
-                | beam.ParDo(SQLWriteDoFn(
-                    host=self.host,
-                    port=self.port,
-                    database=self.database,
-                    username=self.username,
-                    password=self.password,
-                    destination=self.table,
-                    batch_size=self.batch_size,
-                    autocommit=self.autocommit,
-                    wrapper=self.wrapper,
-                    schema=self.schema,
-                    create_disposition=self.create_disposition,
-                    write_disposition=self.write_disposition,
-                    validate=self._validate))
-                )
+        return pcoll | beam.ParDo(
+            SQLWriteDoFn(
+                host=self.host,
+                port=self.port,
+                database=self.database,
+                username=self.username,
+                password=self.password,
+                destination=self.table,
+                batch_size=self.batch_size,
+                autocommit=self.autocommit,
+                wrapper=self.wrapper,
+                schema=self.schema,
+                create_disposition=self.create_disposition,
+                write_disposition=self.write_disposition,
+                validate=self._validate,
+            )
+        )
 
     def display_data(self):
         res = {}
         if self.table is not None:
-            res['table'] = DisplayDataItem(self.table, label='Table')
+            res["table"] = DisplayDataItem(self.table, label="Table")
         return res
